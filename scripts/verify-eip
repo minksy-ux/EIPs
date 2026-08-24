@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+#
+# Runs the same checks CI applies to a single EIP/ERC file, locally.
+#
+# Usage:
+#   scripts/verify-eip 8184
+#   scripts/verify-eip EIPS/eip-8184.md
+#
+# Requires: eipw (cargo install eipw-lint), npx (markdownlint-cli2), codespell.
+# Exits non-zero if any check reports a failure.
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+arg="${1:?usage: scripts/verify-eip <number|path>}"
+if [[ "$arg" =~ ^[0-9]+$ ]]; then
+  file="EIPS/eip-${arg}.md"
+else
+  file="$arg"
+fi
+
+if [[ ! -f "$file" ]]; then
+  echo "error: $file does not exist" >&2
+  exit 1
+fi
+
+failures=0
+pass() { printf '  ok   %s\n' "$1"; }
+fail() { printf '  FAIL %s\n' "$1"; failures=$((failures + 1)); }
+
+echo "verifying: $file"
+echo
+
+# --- eipw: preamble, style, and cross-reference rules -----------------------
+echo "eipw"
+if command -v eipw > /dev/null 2>&1; then
+  if eipw_out=$(eipw --config config/eipw.toml "$file" 2>&1); then
+    pass "eipw reports no issues"
+  else
+    fail "eipw reported issues"
+    printf '%s\n' "$eipw_out" | sed 's/^/       /'
+  fi
+else
+  echo "  skip eipw not installed (cargo install eipw-lint)"
+fi
+echo
+
+# --- markdownlint: repo-wide markdown style rules ----------------------------
+echo "markdownlint"
+if command -v npx > /dev/null 2>&1; then
+  if md_out=$(npx --yes markdownlint-cli2 --config config/.markdownlint.yaml "$file" 2>&1); then
+    pass "markdownlint reports no issues"
+  else
+    fail "markdownlint reported issues"
+    printf '%s\n' "$md_out" | sed 's/^/       /'
+  fi
+else
+  echo "  skip npx not installed"
+fi
+echo
+
+# --- codespell: catches common misspellings ----------------------------------
+echo "codespell"
+if command -v codespell > /dev/null 2>&1; then
+  if cs_out=$(codespell --ignore-words config/.codespell-whitelist "$file" 2>&1); then
+    pass "codespell reports no issues"
+  else
+    fail "codespell reported issues"
+    printf '%s\n' "$cs_out" | sed 's/^/       /'
+  fi
+else
+  echo "  skip codespell not installed (pip install codespell)"
+fi
+echo
+
+if [ "$failures" -eq 0 ]; then
+  echo "all checks passed"
+else
+  echo "$failures check(s) failed"
+  exit 1
+fi

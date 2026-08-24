@@ -1,0 +1,53 @@
+---
+layout: page
+title: Settings
+---
+
+<div id="user-settings">
+  <p>These preferences are stored only in your browser (via <code>localStorage</code>) and are never sent to a server.</p>
+
+  <h2>Default author profile</h2>
+  <p>Your GitHub username, used to prefill the <a href="{{ "/author" | relative_url }}">author profile page</a>.</p>
+  <p>
+    <input type="text" id="setting-github-handle" placeholder="e.g. anderselowsson" />
+    <button id="settings-save-btn">Save</button>
+    <button id="settings-clear-btn">Clear</button>
+  </p>
+  <p id="settings-status"></p>
+</div>
+
+<script>
+(function () {
+  var STORAGE_KEY = 'eip-site-settings';
+
+  function loadSettings() {
+    try {
+      return JSON.parse(window.localStorage.getItem(STORAGE_KEY)) || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveSettings(settings) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  }
+
+  var handleInput = document.getElementById('setting-github-handle');
+  var status = document.getElementById('settings-status');
+
+  handleInput.value = loadSettings().githubHandle || '';
+
+  document.getElementById('settings-save-btn').addEventListener('click', function () {
+    var settings = loadSettings();
+    settings.githubHandle = handleInput.value.trim().replace(/^@/, '');
+    saveSettings(settings);
+    status.textContent = 'Saved.';
+  });
+
+  document.getElementById('settings-clear-btn').addEventListener('click', function () {
+    handleInput.value = '';
+    saveSettings({});
+    status.textContent = 'Cleared.';
+  });
+})();
+</script>

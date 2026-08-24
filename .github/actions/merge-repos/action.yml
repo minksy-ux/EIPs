@@ -1,4 +1,5 @@
 name: Merge ERCs
+description: Merge the ERC repository into the EIP repository.
 
 runs:
   using: 'composite'

@@ -1,0 +1,92 @@
+---
+layout: page
+title: Author Profile
+---
+
+<div id="author-profile">
+  <p>Enter a GitHub username to see the EIPs/ERCs they've authored: <input type="text" id="author-search" placeholder="e.g. anderselowsson" /> <button id="author-search-btn">Search</button></p>
+  <div id="author-results"></div>
+</div>
+
+{% assign eips=site.pages|where_exp:"page","page.url contains '/EIPS/'" %}
+<script type="application/json" id="author-data">
+[
+  {% for page in eips %}
+  {
+    "eip": {{ page.eip|jsonify }},
+    "title": {{ page.title|jsonify }},
+    "status": {{ page.status|jsonify }},
+    "url": {{ page.url|relative_url|jsonify }},
+    "author": {{ page.author|jsonify }}
+  }{% unless forloop.last %},{% endunless %}
+  {% endfor %}
+]
+</script>
+
+<script src="{{ '/assets/js/author-profile.js' | relative_url }}"></script>
+<script>
+(function () {
+  var eips = JSON.parse(document.getElementById('author-data').textContent);
+
+  function render(handle) {
+    var results = document.getElementById('author-results');
+    if (!handle) {
+      results.innerHTML = '';
+      return;
+    }
+    var matches = AuthorProfile.eipsForHandle(eips, handle);
+    if (matches.length === 0) {
+      results.innerHTML = '<p>No EIPs/ERCs found for <strong>@' + handle + '</strong>.</p>';
+      return;
+    }
+    var rows = matches
+      .sort(function (a, b) { return a.eip - b.eip; })
+      .map(function (page) {
+        return '<tr><td><a href="' + page.url + '">' + page.eip + '</a></td>' +
+          '<td>' + page.title + '</td>' +
+          '<td>' + page.status + '</td></tr>';
+      })
+      .join('');
+    results.innerHTML = '<h2>@' + handle + '</h2>' +
+      '<table class="eiptable"><thead><tr><th>Number</th><th>Title</th><th>Status</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table>';
+  }
+
+  function defaultHandleFromSettings() {
+    try {
+      var settings = JSON.parse(window.localStorage.getItem('eip-site-settings')) || {};
+      return settings.githubHandle || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function handleFromQuery() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('github') || '';
+  }
+
+  document.getElementById('author-search-btn').addEventListener('click', function () {
+    var handle = document.getElementById('author-search').value.trim().replace(/^@/, '');
+    var url = new URL(window.location.href);
+    if (handle) {
+      url.searchParams.set('github', handle);
+    } else {
+      url.searchParams.delete('github');
+    }
+    window.history.replaceState(null, '', url);
+    render(handle);
+  });
+
+  document.getElementById('author-search').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('author-search-btn').click();
+  });
+
+  // Falls back to the default handle saved on the settings page when the URL has none.
+  var initial = handleFromQuery() || defaultHandleFromSettings();
+  if (initial) {
+    document.getElementById('author-search').value = initial;
+    render(initial);
+  }
+})();
+</script>
