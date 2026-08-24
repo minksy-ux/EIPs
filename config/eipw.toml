@@ -37,8 +37,6 @@ message = "preamble header `description` should not contain `:`"
 [lints.preamble-refs-description]
 kind = "preamble-proposal-ref"
 name = "description"
-prefix = "eip-"
-suffix = ".md"
 
 [lints.preamble-enum-category]
 kind = "preamble-one-of"
@@ -73,8 +71,6 @@ message = "proposals must be referenced with the form `ERC-N` (not `ERCN` or `ER
 
 [lints.markdown-refs]
 kind = "markdown-proposal-ref"
-prefix = "eip-"
-suffix = ".md"
 
 [lints.preamble-req-withdrawal-reason]
 kind = "preamble-required-if-eq"
@@ -784,8 +780,7 @@ sections = [
 ]
 
 [lints.markdown-link-status]
-prefix = "eip-"
-suffix = ".md"
+pattern = "(?i)(?:eip|erc)-([0-9]+).md$"
 kind = "markdown-link-status"
 status = "status"
 flow = [
@@ -931,8 +926,7 @@ then = "last-call-deadline"
 [lints.preamble-file-name]
 kind = "preamble-file-name"
 name = "eip"
-prefix = "eip-"
-suffix = ".md"
+format = "eip-{}"
 
 [lints.markdown-no-backticks]
 kind = "markdown-no-backticks"
