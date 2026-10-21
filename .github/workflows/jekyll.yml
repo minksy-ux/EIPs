@@ -31,8 +31,8 @@ concurrency:
 jobs:
   # Build job
   build:
-    # Pin the runner because Ruby 3.1 is unavailable on Ubuntu 26.04.
-    runs-on: ubuntu-24.04
+    # Keep Ruby 3.1 on a supported image; ubuntu-latest can move to incompatible releases.
+    runs-on: ubuntu-22.04
     outputs:
       pages_enabled: ${{ steps.pages-check.outputs.enabled }}
       artifact_uploaded: ${{ steps.upload.outcome == 'success' }}
