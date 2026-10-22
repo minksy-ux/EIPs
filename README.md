@@ -110,8 +110,10 @@ timestamps in seven feeds. The sandbox blocked the GitHub metadata API, so both
 local builds used an empty base URL and injected
 `site.github.repository_url = https://github.com/ethereum/EIPs` after plugin
 initialization, without disabling plugins or changing repository configuration.
-Authenticated metadata behavior was not revalidated locally. Doctor passed;
-the domain health-check executable could not run on local Ruby 3.2 because
+Authenticated metadata behavior was not revalidated locally. Doctor and the
+unchanged HTMLProofer command passed (1,314 files and 11,428 internal links;
+HTMLProofer took 108.47 seconds locally, not a separate optimization).
+The domain health-check executable could not run on local Ruby 3.2 because
 github-pages 228 uses `File.exists?`. CI retains Ruby 3.1 and its health check.
 
 Run the rendering and diagnostic-workflow regressions with the locked bundle,
