@@ -35,7 +35,8 @@ assert.equal(step('Setup Pages').uses, 'actions/configure-pages@v6');
 assert.equal(step('Setup Pages').id, 'pages');
 assert.equal(step('Setup Pages').if, undefined);
 assert.ok(build.steps.indexOf(step('Setup Pages')) < build.steps.indexOf(step('Build with Jekyll')));
-assert.equal(step('Build with Jekyll').run, 'bundle exec jekyll build --baseurl "$PAGES_BASE_PATH"');
+assert.equal(step('Build with Jekyll').run,
+  '/usr/bin/time -v bundle exec jekyll build --baseurl "$PAGES_BASE_PATH" --profile --trace --verbose');
 assert.equal(step('Build with Jekyll').env.PAGES_BASE_PATH, '${{ steps.pages.outputs.base_path }}');
 assert.equal(step('Build with Jekyll').env.JEKYLL_ENV, 'production');
 assert.equal(step('Build with Jekyll').if, undefined);
@@ -57,9 +58,10 @@ const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-workflow-'));
 try {
   fs.writeFileSync(path.join(temporary, 'bundle'), `#!/usr/bin/env bash
 set -eu
-[[ "$#" == 5 ]]
+[[ "$#" == 8 ]]
 [[ "$1" == exec && "$2" == jekyll && "$3" == build && "$4" == --baseurl ]]
 [[ "$5" == "$PAGES_BASE_PATH" ]]
+[[ "$6" == --profile && "$7" == --trace && "$8" == --verbose ]]
 `, { mode: 0o755 });
   for (const basePath of ['/EIPs', '']) {
     execFileSync('bash', ['-e', '-c', step('Build with Jekyll').run], {

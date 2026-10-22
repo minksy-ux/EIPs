@@ -70,6 +70,60 @@ A successful fork build is not a successful deployment. Enabling Pages in a fork
 would require explicit repository setup and a separately reviewed deployment policy
 change; enabling Pages alone does not bypass the upstream-only guards.
 
+### Production build diagnostics
+
+CI and Pages perform full production builds after merging ERCs. Both run
+`/usr/bin/time -v bundle exec jekyll build --profile --trace --verbose`:
+verbose output identifies the file being rendered, the final profile ranks
+Liquid templates, and process timing reports elapsed time and peak memory.
+Pages also retains `--baseurl "$PAGES_BASE_PATH"` from its configuration step.
+Build steps time out after 20 minutes; CI also bounds doctor, HTMLProofer, and
+DNS validation separately. A timeout is a failed check, not a skipped validation.
+To reproduce, use the same merged inputs with `JEKYLL_ENV=production`.
+
+The apparently stalled [CI job](https://github.com/minksy-ux/EIPs/actions/runs/39728601462/job/119661941012)
+actually succeeded: Jekyll took 508.76 seconds, HTMLProofer took 158.04 seconds,
+and the domain health check passed. The feed message was normal progress before
+rendering, not an exception; disabled incremental building is intentional.
+
+The header's repeated full-page navigation scans were the confirmed bottleneck.
+Only this page-independent fragment is cached using the already-locked
+`jekyll-include-cache` plugin. Its in-memory cache is cleared at `site:pre_render`,
+including rebuilds; nothing is shared between workflow runs or PRs. Keep
+`_includes/header-cached.html` independent of the current page. Page-specific
+content, metadata, Markdown processing, feeds, and validation are not cached or
+disabled.
+
+One local before/after comparison used the same merged corpus (1,198 proposals),
+locked dependencies, Ruby 3.2.11, Jekyll 3.9.3, production mode, profiling enabled,
+and clean destinations without incremental output:
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| Full Jekyll build | 363.457 s | 41.125 s |
+| Header Liquid rendering | 319.800 s | 0.277 s |
+| Navigation fragment renders | 1,308 | 1 |
+
+This was about 89% less build time locally, not a promised CI runtime. All 1,314
+generated HTML files were byte-identical; the only output differences were build
+timestamps in seven feeds. The sandbox blocked the GitHub metadata API, so both
+local builds used an empty base URL and injected
+`site.github.repository_url = https://github.com/ethereum/EIPs` after plugin
+initialization, without disabling plugins or changing repository configuration.
+Authenticated metadata behavior was not revalidated locally. Doctor and the
+unchanged HTMLProofer command passed (1,314 files and 11,428 internal links;
+HTMLProofer took 108.47 seconds locally, not a separate optimization).
+The domain health-check executable could not run on local Ruby 3.2 because
+github-pages 228 uses `File.exists?`. CI retains Ruby 3.1 and its health check.
+
+Run the rendering and diagnostic-workflow regressions with the locked bundle,
+Node.js, and Ruby:
+
+```sh
+bundle exec ruby tests/jekyll/run.rb
+node tests/jekyll-workflow/run.js
+```
+
 ### Install prerequisites
 
 1. Open Terminal.

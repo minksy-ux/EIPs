@@ -27,6 +27,7 @@ concurrency:
 jobs:
   # Build job
   build:
+    timeout-minutes: 30
     # Pin the image and Ruby patch so runner updates cannot select an unsupported binary.
     runs-on: ubuntu-22.04
     permissions:
@@ -65,7 +66,8 @@ jobs:
         run: echo "PAGES_BASE_PATH=${{ steps.pages.outputs.base_path }}" >> $GITHUB_ENV
       - name: Build with Jekyll
         # Outputs to the './_site' directory by default
-        run: bundle exec jekyll build --baseurl "$PAGES_BASE_PATH"
+        timeout-minutes: 20
+        run: /usr/bin/time -v bundle exec jekyll build --baseurl "$PAGES_BASE_PATH" --profile --trace --verbose
         env:
           JEKYLL_ENV: production
           JEKYLL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
