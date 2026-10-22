@@ -28,8 +28,8 @@ jobs:
   # Build job
   build:
     timeout-minutes: 30
-    # Pin the image and Ruby patch so runner updates cannot select an unsupported binary.
-    runs-on: ubuntu-22.04
+    # Pin the image so runner updates cannot select an unsupported Ruby binary.
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pages: read
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.1.7' # Keep the Ruby binary compatible with the pinned runner.
+          ruby-version: '3.3' # Keep the Ruby binary compatible with the pinned runner.
           bundler-cache: false
       - name: Install Ruby dependencies
         run: bundle install --jobs 4 --retry 3
@@ -85,7 +85,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - name: Deploy to GitHub Pages
