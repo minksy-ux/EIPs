@@ -15,65 +15,62 @@ const workflow = JSON.parse(execFileSync('ruby', [
 ], { encoding: 'utf8' }));
 const { build, deploy } = workflow.jobs;
 const step = (name) => build.steps.find((entry) => entry.name === name);
-const upstream = "github.repository == 'ethereum/EIPs'";
 // Ruby's YAML 1.1 parser treats the unquoted GitHub Actions "on" key as true.
 const triggers = workflow.on || workflow.true;
 
 assert.deepEqual(triggers.push.branches, ['master']);
 assert.ok(Object.hasOwn(triggers, 'workflow_dispatch'));
-assert.equal(triggers.schedule[0].cron, '*/15 * * * *');
-assert.equal(build.if, `github.event_name != 'schedule' || ${upstream}`);
+assert.equal(triggers.schedule, undefined);
+assert.equal(build.if, undefined);
+assert.deepEqual(workflow.concurrency, { group: 'pages', 'cancel-in-progress': false });
 assert.equal(build['runs-on'], 'ubuntu-22.04');
 assert.equal(step('Setup Ruby').with['ruby-version'], '3.1.7');
 assert.equal(step('Checkout EIPs').with.repository, undefined);
 assert.equal(step('Checkout EIPs').with.ref, undefined);
 assert.equal(step('Checkout EIPs').with['persist-credentials'], false);
+assert.equal(step('Checkout EIPs').uses, 'actions/checkout@v7.0.1');
 assert.equal(step('Merge Repos').uses, './.github/actions/merge-repos');
 assert.equal(step('Install Ruby dependencies').run, 'bundle install --jobs 4 --retry 3');
+assert.equal(step('Setup Pages').uses, 'actions/configure-pages@v6');
+assert.equal(step('Setup Pages').id, 'pages');
+assert.equal(step('Setup Pages').if, undefined);
+assert.ok(build.steps.indexOf(step('Setup Pages')) < build.steps.indexOf(step('Build with Jekyll')));
 assert.equal(step('Build with Jekyll').run,
-  '/usr/bin/time -v bundle exec jekyll build --profile --trace --verbose');
+  '/usr/bin/time -v bundle exec jekyll build --baseurl "$PAGES_BASE_PATH" --profile --trace --verbose');
+assert.equal(step('Build with Jekyll').env.PAGES_BASE_PATH, '${{ steps.pages.outputs.base_path }}');
+assert.equal(step('Build with Jekyll').env.JEKYLL_ENV, 'production');
 assert.equal(step('Build with Jekyll').if, undefined);
 assert.deepEqual(workflow.permissions, { contents: 'read' });
 assert.deepEqual(build.permissions, { contents: 'read', pages: 'read' });
 assert.deepEqual(deploy.permissions, { pages: 'write', 'id-token': 'write' });
-assert.equal(step('Check Pages site availability').if, upstream);
-assert.equal(step('Upload artifact').if,
-  `${upstream} && steps.pages-check.outputs.enabled == 'true'`);
-assert.equal(deploy.if,
-  `${upstream} && needs.build.outputs.pages_enabled == 'true' && needs.build.outputs.artifact_uploaded == 'true'`);
+assert.equal(step('Upload artifact').if, undefined);
+assert.equal(step('Upload artifact').uses, 'actions/upload-pages-artifact@v5');
+assert.equal(step('Upload artifact').with.path, './_site');
+assert.equal(deploy.if, undefined);
 assert.equal(deploy.needs, 'build');
+assert.equal(deploy.environment.name, 'github-pages');
+assert.equal(deploy.environment.url, '${{ steps.deployment.outputs.page_url }}');
+assert.equal(deploy.steps[0].id, 'deployment');
+assert.equal(deploy.steps[0].uses, 'actions/deploy-pages@v5');
 
-// Exercise the actual Pages check without network access or real credentials.
+// Check base-path arguments for both project sites and custom domains.
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-workflow-'));
 try {
-  fs.writeFileSync(path.join(temporary, 'curl'), `#!/usr/bin/env bash
+  fs.writeFileSync(path.join(temporary, 'bundle'), `#!/usr/bin/env bash
 set -eu
-[[ "$*" == *"$GH_TOKEN"* ]]
-printf '%s' "$TEST_HTTP_STATUS"
-exit "$TEST_CURL_EXIT"
+[[ "$#" == 8 ]]
+[[ "$1" == exec && "$2" == jekyll && "$3" == build && "$4" == --baseurl ]]
+[[ "$5" == "$PAGES_BASE_PATH" ]]
+[[ "$6" == --profile && "$7" == --trace && "$8" == --verbose ]]
 `, { mode: 0o755 });
-  const script = step('Check Pages site availability').run.replace(
-    '${{ github.repository }}', 'ethereum/EIPs');
-  for (const [status, exit, enabled] of [
-    ['200', '0', 'true'],
-    ['404', '0', 'false'],
-    ['403', '0', 'false'],
-    ['000', '7', 'false'],
-    ['200', '7', 'false'],
-  ]) {
-    const output = path.join(temporary, 'output');
-    fs.writeFileSync(output, '');
-    execFileSync('bash', ['-e', '-c', script], {
+  for (const basePath of ['/EIPs', '']) {
+    execFileSync('bash', ['-e', '-c', step('Build with Jekyll').run], {
       env: {
         ...process.env,
         PATH: `${temporary}:${process.env.PATH}`,
-        GH_TOKEN: 'test-token',
-        GITHUB_OUTPUT: output,
-        TEST_HTTP_STATUS: status,
-        TEST_CURL_EXIT: exit,
+        PAGES_BASE_PATH: basePath,
       },
     });
-    assert.equal(fs.readFileSync(output, 'utf8'), `enabled=${enabled}\n`);
   }
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });

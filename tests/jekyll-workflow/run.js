@@ -18,8 +18,9 @@ const pages = workflow('jekyll.yml').jobs.build;
 for (const job of [ci, pages]) {
   const step = (name) => job.steps.find((entry) => entry.name === name);
   const build = step('Build with Jekyll');
+  const baseurl = job === pages ? ' --baseurl "$PAGES_BASE_PATH"' : '';
   assert.equal(build.run,
-    '/usr/bin/time -v bundle exec jekyll build --profile --trace --verbose');
+    `/usr/bin/time -v bundle exec jekyll build${baseurl} --profile --trace --verbose`);
   assert.equal(build.env.JEKYLL_ENV, 'production');
   assert.equal(build.env.JEKYLL_GITHUB_TOKEN, '${{ secrets.GITHUB_TOKEN }}');
   assert.equal(build.if, undefined);

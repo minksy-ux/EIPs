@@ -76,6 +76,7 @@ CI and Pages perform full production builds after merging ERCs. Both run
 `/usr/bin/time -v bundle exec jekyll build --profile --trace --verbose`:
 verbose output identifies the file being rendered, the final profile ranks
 Liquid templates, and process timing reports elapsed time and peak memory.
+Pages also retains `--baseurl "$PAGES_BASE_PATH"` from its configuration step.
 Build steps time out after 20 minutes; CI also bounds doctor, HTMLProofer, and
 DNS validation separately. A timeout is a failed check, not a skipped validation.
 To reproduce, use the same merged inputs with `JEKYLL_ENV=production`.
