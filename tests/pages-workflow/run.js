@@ -32,23 +32,34 @@ assert.equal(step('Checkout EIPs').with['persist-credentials'], false);
 assert.equal(step('Checkout EIPs').uses, 'actions/checkout@v7.0.1');
 assert.equal(step('Merge Repos').uses, './.github/actions/merge-repos');
 assert.equal(step('Install Ruby dependencies').run, 'bundle install --jobs 4 --retry 3');
-assert.equal(step('Setup Pages (with PAT)').uses, 'actions/configure-pages@v6');
-assert.equal(step('Setup Pages (with PAT)').id, 'pages_pat');
-assert.equal(step('Setup Pages (with PAT)').if, "${{ secrets.PAGES_TOKEN != '' }}");
-assert.equal(step('Setup Pages (with PAT)').with.enablement, true);
-assert.equal(step('Setup Pages (with PAT)').with.token, '${{ secrets.PAGES_TOKEN }}');
-assert.equal(step('Setup Pages (fallback)').uses, 'actions/configure-pages@v6');
-assert.equal(step('Setup Pages (fallback)').id, 'pages');
-assert.equal(step('Setup Pages (fallback)').if, "${{ secrets.PAGES_TOKEN == '' }}");
-assert.equal(step('Expose Pages base path from PAT step').if, "${{ steps.pages_pat.outcome == 'success' }}");
-assert.equal(step('Expose Pages base path from PAT step').run,
-  'echo "PAGES_BASE_PATH=${{ steps.pages_pat.outputs.base_path }}" >> $GITHUB_ENV');
-assert.equal(step('Expose Pages base path from fallback step').if, "${{ steps.pages_pat.outcome != 'success' }}");
-assert.equal(step('Expose Pages base path from fallback step').run,
-  'echo "PAGES_BASE_PATH=${{ steps.pages.outputs.base_path }}" >> $GITHUB_ENV');
-assert.ok(build.steps.indexOf(step('Setup Pages (fallback)')) < build.steps.indexOf(step('Build with Jekyll')));
+assert.deepEqual(build.env, { HAS_PAGES_TOKEN: "${{ secrets.PAGES_TOKEN != '' }}" });
+const pagesPat = step('Setup Pages (with PAT)');
+const pagesFallback = step('Setup Pages (fallback)');
+assert.equal(pagesPat.id, 'pages_pat');
+assert.equal(pagesPat.if, "${{ env.HAS_PAGES_TOKEN == 'true' }}");
+assert.deepEqual(pagesPat.with, { enablement: true, token: '${{ secrets.PAGES_TOKEN }}' });
+assert.equal(pagesFallback.id, 'pages');
+assert.equal(pagesFallback.if, "${{ env.HAS_PAGES_TOKEN != 'true' }}");
+assert.equal(pagesFallback.with, undefined);
+for (const setup of [pagesPat, pagesFallback]) {
+  assert.equal(setup.uses, 'actions/configure-pages@v6');
+  assert.ok(build.steps.indexOf(setup) < build.steps.indexOf(step('Build with Jekyll')));
+}
+assert.equal(step('Expose Pages base path from PAT step').if,
+  "${{ steps.pages_pat.outcome == 'success' }}");
+assert.equal(step('Expose Pages base path from fallback step').if,
+  "${{ steps.pages_pat.outcome != 'success' }}");
+for (const token of [undefined, '', 'dummy-token']) {
+  const flag = String((token || '') !== '');
+  const selected = [pagesPat, pagesFallback].filter((setup) => {
+    const operator = setup.if.match(/HAS_PAGES_TOKEN (==|!=) 'true'/)[1];
+    return operator === '==' ? flag === 'true' : flag !== 'true';
+  });
+  assert.deepEqual(selected, [token ? pagesPat : pagesFallback]);
+}
 assert.equal(step('Build with Jekyll').run,
   '/usr/bin/time -v bundle exec jekyll build --baseurl "$PAGES_BASE_PATH" --profile --trace --verbose');
+assert.equal(step('Build with Jekyll').env.PAGES_BASE_PATH, undefined);
 assert.equal(step('Build with Jekyll').env.JEKYLL_ENV, 'production');
 assert.equal(step('Build with Jekyll').if, undefined);
 assert.deepEqual(workflow.permissions, { contents: 'read' });
@@ -75,6 +86,16 @@ set -eu
 [[ "$6" == --profile && "$7" == --trace && "$8" == --verbose ]]
 `, { mode: 0o755 });
   for (const basePath of ['/EIPs', '']) {
+    for (const [branch, id] of [['PAT', 'pages_pat'], ['fallback', 'pages']]) {
+      const expose = step(`Expose Pages base path from ${branch} step`);
+      const envFile = path.join(temporary, 'github-env');
+      fs.writeFileSync(envFile, '');
+      assert.ok(build.steps.indexOf(expose) < build.steps.indexOf(step('Build with Jekyll')));
+      execFileSync('bash', ['-e', '-c', expose.run.replace(
+        `\${{ steps.${id}.outputs.base_path }}`, basePath,
+      )], { env: { ...process.env, GITHUB_ENV: envFile } });
+      assert.equal(fs.readFileSync(envFile, 'utf8'), `PAGES_BASE_PATH=${basePath}\n`);
+    }
     execFileSync('bash', ['-e', '-c', step('Build with Jekyll').run], {
       env: {
         ...process.env,
