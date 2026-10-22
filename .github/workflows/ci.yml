@@ -55,6 +55,9 @@ jobs:
         with:
           ruby-version: '3.1' # Not needed with a .ruby-version file
           bundler-cache: true
+      - name: Jekyll rendering tests
+        timeout-minutes: 2
+        run: bundle exec ruby tests/jekyll/run.rb
       - name: Jekyll Doctor
         timeout-minutes: 5
         run: bundle exec jekyll doctor
