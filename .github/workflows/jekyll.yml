@@ -29,9 +29,9 @@ concurrency:
 jobs:
   # Build job
   build:
-    # Only upstream deploys on a schedule; forks retain push/manual build validation.
+    # Avoid scheduled fork runs; fork pushes and manual runs still validate the build.
     if: github.event_name != 'schedule' || github.repository == 'ethereum/EIPs'
-    # Keep Ruby 3.1 on a supported image; ubuntu-latest can move to incompatible releases.
+    # Pin the image and Ruby patch so runner updates cannot select an unsupported binary.
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -49,7 +49,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.1' # Not needed with a .ruby-version file
+          ruby-version: '3.1.7' # Keep the Ruby binary compatible with the pinned runner.
           bundler-cache: false
       - name: Install Ruby dependencies
         run: bundle install --jobs 4 --retry 3
@@ -59,11 +59,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Only a successful Pages API check enables upload; failures remain build-only.
           set +e
           status=$(curl -sS -o /tmp/pages.json -w "%{http_code}" \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/pages")
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")
           curl_exit=$?
           set -e
 
@@ -87,12 +88,14 @@ jobs:
           JEKYLL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload artifact
         id: upload
+        # Forks and repositories without enabled Pages still build, but never upload.
         if: github.repository == 'ethereum/EIPs' && steps.pages-check.outputs.enabled == 'true'
         # Automatically uploads an artifact from the './_site' directory by default
         uses: actions/upload-pages-artifact@v5
 
   # Deployment job
   deploy:
+    # A successful upload proves the Pages artifact exists for this upstream deployment.
     if: github.repository == 'ethereum/EIPs' && needs.build.outputs.pages_enabled == 'true' && needs.build.outputs.artifact_uploaded == 'true'
     permissions:
       pages: write
