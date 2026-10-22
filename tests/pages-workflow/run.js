@@ -24,7 +24,7 @@ assert.ok(Object.hasOwn(triggers, 'workflow_dispatch'));
 assert.equal(triggers.schedule[0].cron, '*/15 * * * *');
 assert.equal(build.if, `github.event_name != 'schedule' || ${upstream}`);
 assert.equal(build['runs-on'], 'ubuntu-22.04');
-assert.equal(step('Setup Ruby').with['ruby-version'], '3.1');
+assert.equal(step('Setup Ruby').with['ruby-version'], '3.1.7');
 assert.equal(step('Checkout EIPs').with.repository, undefined);
 assert.equal(step('Checkout EIPs').with.ref, undefined);
 assert.equal(step('Checkout EIPs').with['persist-credentials'], false);
