@@ -32,13 +32,23 @@ assert.equal(step('Checkout EIPs').with['persist-credentials'], false);
 assert.equal(step('Checkout EIPs').uses, 'actions/checkout@v7.0.1');
 assert.equal(step('Merge Repos').uses, './.github/actions/merge-repos');
 assert.equal(step('Install Ruby dependencies').run, 'bundle install --jobs 4 --retry 3');
-assert.equal(step('Setup Pages').uses, 'actions/configure-pages@v6');
-assert.equal(step('Setup Pages').id, 'pages');
-assert.equal(step('Setup Pages').if, undefined);
-assert.ok(build.steps.indexOf(step('Setup Pages')) < build.steps.indexOf(step('Build with Jekyll')));
+assert.equal(step('Setup Pages (with PAT)').uses, 'actions/configure-pages@v6');
+assert.equal(step('Setup Pages (with PAT)').id, 'pages_pat');
+assert.equal(step('Setup Pages (with PAT)').if, "${{ secrets.PAGES_TOKEN != '' }}");
+assert.equal(step('Setup Pages (with PAT)').with.enablement, true);
+assert.equal(step('Setup Pages (with PAT)').with.token, '${{ secrets.PAGES_TOKEN }}');
+assert.equal(step('Setup Pages (fallback)').uses, 'actions/configure-pages@v6');
+assert.equal(step('Setup Pages (fallback)').id, 'pages');
+assert.equal(step('Setup Pages (fallback)').if, "${{ secrets.PAGES_TOKEN == '' }}");
+assert.equal(step('Expose Pages base path from PAT step').if, "${{ steps.pages_pat.outcome == 'success' }}");
+assert.equal(step('Expose Pages base path from PAT step').run,
+  'echo "PAGES_BASE_PATH=${{ steps.pages_pat.outputs.base_path }}" >> $GITHUB_ENV');
+assert.equal(step('Expose Pages base path from fallback step').if, "${{ steps.pages_pat.outcome != 'success' }}");
+assert.equal(step('Expose Pages base path from fallback step').run,
+  'echo "PAGES_BASE_PATH=${{ steps.pages.outputs.base_path }}" >> $GITHUB_ENV');
+assert.ok(build.steps.indexOf(step('Setup Pages (fallback)')) < build.steps.indexOf(step('Build with Jekyll')));
 assert.equal(step('Build with Jekyll').run,
   '/usr/bin/time -v bundle exec jekyll build --baseurl "$PAGES_BASE_PATH" --profile --trace --verbose');
-assert.equal(step('Build with Jekyll').env.PAGES_BASE_PATH, '${{ steps.pages.outputs.base_path }}');
 assert.equal(step('Build with Jekyll').env.JEKYLL_ENV, 'production');
 assert.equal(step('Build with Jekyll').if, undefined);
 assert.deepEqual(workflow.permissions, { contents: 'read' });
