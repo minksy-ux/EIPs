@@ -50,6 +50,26 @@ eipw --config ./config/eipw.toml <INPUT FILE / DIRECTORY>
 
 ## Build the status page locally
 
+### Pages workflow validation
+
+The Pages workflow builds the triggering repository and commit, including its local
+merge action. Pushes to `master` and manual runs validate fork builds; scheduled
+runs, artifact uploads, and deployment are restricted to `ethereum/EIPs`.
+Build jobs have read-only permissions; Pages and OIDC write permissions are limited
+to the deployment job.
+
+Run the workflow regression checks with Node.js and Ruby (standard libraries only):
+
+```sh
+node tests/pages-workflow/run.js
+```
+
+These checks cover checkout, runner selection, triggers, deployment guards,
+permissions, and Pages API success, unavailable-site, and network-error responses.
+A successful fork build is not a successful deployment. Enabling Pages in a fork
+would require explicit repository setup and a separately reviewed deployment policy
+change; enabling Pages alone does not bypass the upstream-only guards.
+
 ### Install prerequisites
 
 1. Open Terminal.

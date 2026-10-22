@@ -98,6 +98,19 @@ jobs:
       - name: Run author-profile tests
         run: tests/author-profile/run.sh
 
+  pages-workflow:
+    name: Pages Workflow Tests
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout EIP Repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run Pages workflow tests
+        run: node tests/pages-workflow/run.js
+
   codespell:
     name: CodeSpell
     runs-on: ubuntu-latest
