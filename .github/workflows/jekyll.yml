@@ -46,19 +46,29 @@ jobs:
           bundler-cache: false
       - name: Install Ruby dependencies
         run: bundle install --jobs 4 --retry 3
-      - name: Setup Pages
-        id: pages
+      - name: Setup Pages (with PAT)
+        id: pages_pat
+        if: ${{ secrets.PAGES_TOKEN != '' }}
         uses: actions/configure-pages@v6
         with:
           enablement: true
           token: ${{ secrets.PAGES_TOKEN }}
+      - name: Setup Pages (fallback)
+        id: pages
+        if: ${{ secrets.PAGES_TOKEN == '' }}
+        uses: actions/configure-pages@v6
+      - name: Expose Pages base path from PAT step
+        if: ${{ steps.pages_pat.outcome == 'success' }}
+        run: echo "PAGES_BASE_PATH=${{ steps.pages_pat.outputs.base_path }}" >> $GITHUB_ENV
+      - name: Expose Pages base path from fallback step
+        if: ${{ steps.pages_pat.outcome != 'success' }}
+        run: echo "PAGES_BASE_PATH=${{ steps.pages.outputs.base_path }}" >> $GITHUB_ENV
       - name: Build with Jekyll
         # Outputs to the './_site' directory by default
         run: bundle exec jekyll build --baseurl "$PAGES_BASE_PATH"
         env:
           JEKYLL_ENV: production
           JEKYLL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
       - name: Upload artifact
         # Automatically uploads an artifact from the './_site' directory by default
         uses: actions/upload-pages-artifact@v5
