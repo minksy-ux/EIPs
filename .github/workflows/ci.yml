@@ -39,6 +39,7 @@ jobs:
   htmlproofer:
     name: HTMLProofer
     runs-on: ubuntu-24.04
+    timeout-minutes: 35
     permissions:
       contents: read
 
@@ -55,20 +56,24 @@ jobs:
           ruby-version: '3.1' # Not needed with a .ruby-version file
           bundler-cache: true
       - name: Jekyll Doctor
+        timeout-minutes: 5
         run: bundle exec jekyll doctor
         env:
           JEKYLL_ENV: production
           JEKYLL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build with Jekyll
-        run: bundle exec jekyll build
+        timeout-minutes: 20
+        run: /usr/bin/time -v bundle exec jekyll build --profile --trace --verbose
         env:
           JEKYLL_ENV: production
           JEKYLL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: HTML Proofer
+        timeout-minutes: 10
         run: bundle exec htmlproofer --allow-missing-href --disable-external --assume-extension '.html' --log-level=:info --cache='{"timeframe":{"external":"6w"}}' --checks 'Links,Images,Scripts,OpenGraph' --no-check-sri --ignore-empty-alt --no-enforce_https ./_site
       - name: DNS Validator
+        timeout-minutes: 2
         run: bundle exec github-pages health-check
 
   link-check:
@@ -110,6 +115,8 @@ jobs:
           persist-credentials: false
       - name: Run Pages workflow tests
         run: node tests/pages-workflow/run.js
+      - name: Run Jekyll workflow tests
+        run: node tests/jekyll-workflow/run.js
 
   codespell:
     name: CodeSpell

@@ -30,7 +30,8 @@ assert.equal(step('Checkout EIPs').with.ref, undefined);
 assert.equal(step('Checkout EIPs').with['persist-credentials'], false);
 assert.equal(step('Merge Repos').uses, './.github/actions/merge-repos');
 assert.equal(step('Install Ruby dependencies').run, 'bundle install --jobs 4 --retry 3');
-assert.equal(step('Build with Jekyll').run, 'bundle exec jekyll build');
+assert.equal(step('Build with Jekyll').run,
+  '/usr/bin/time -v bundle exec jekyll build --profile --trace --verbose');
 assert.equal(step('Build with Jekyll').if, undefined);
 assert.deepEqual(workflow.permissions, { contents: 'read' });
 assert.deepEqual(build.permissions, { contents: 'read', pages: 'read' });

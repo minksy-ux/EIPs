@@ -29,6 +29,7 @@ concurrency:
 jobs:
   # Build job
   build:
+    timeout-minutes: 30
     # Avoid scheduled fork runs; fork pushes and manual runs still validate the build.
     if: github.event_name != 'schedule' || github.repository == 'ethereum/EIPs'
     # Pin the image and Ruby patch so runner updates cannot select an unsupported binary.
@@ -82,7 +83,8 @@ jobs:
           fi
       - name: Build with Jekyll
         # Outputs to the './_site' directory by default
-        run: bundle exec jekyll build
+        timeout-minutes: 20
+        run: /usr/bin/time -v bundle exec jekyll build --profile --trace --verbose
         env:
           JEKYLL_ENV: production
           JEKYLL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
