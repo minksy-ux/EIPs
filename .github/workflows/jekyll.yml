@@ -31,6 +31,8 @@ concurrency:
 jobs:
   # Build job
   build:
+    # Only upstream deploys on a schedule; forks retain push/manual build validation.
+    if: github.event_name != 'schedule' || github.repository == 'ethereum/EIPs'
     # Keep Ruby 3.1 on a supported image; ubuntu-latest can move to incompatible releases.
     runs-on: ubuntu-22.04
     outputs:
