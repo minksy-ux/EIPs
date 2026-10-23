@@ -23,8 +23,9 @@ assert.ok(Object.hasOwn(triggers, 'workflow_dispatch'));
 assert.equal(triggers.schedule, undefined);
 assert.equal(build.if, undefined);
 assert.deepEqual(workflow.concurrency, { group: 'pages', 'cancel-in-progress': false });
-assert.equal(build['runs-on'], 'ubuntu-22.04');
-assert.equal(step('Setup Ruby').with['ruby-version'], '3.1.7');
+assert.equal(build['runs-on'], 'ubuntu-24.04');
+assert.equal(deploy['runs-on'], 'ubuntu-24.04');
+assert.equal(step('Setup Ruby').with['ruby-version'], '3.3');
 assert.equal(step('Checkout EIPs').with.repository, undefined);
 assert.equal(step('Checkout EIPs').with.ref, undefined);
 assert.equal(step('Checkout EIPs').with['persist-credentials'], false);
@@ -46,8 +47,12 @@ for (const setup of [pagesPat, pagesFallback]) {
 }
 assert.equal(step('Expose Pages base path from PAT step').if,
   "${{ steps.pages_pat.outcome == 'success' }}");
+assert.equal(step('Expose Pages base path from PAT step').run,
+  'echo "PAGES_BASE_PATH=${{ steps.pages_pat.outputs.base_path }}" >> $GITHUB_ENV');
 assert.equal(step('Expose Pages base path from fallback step').if,
   "${{ steps.pages_pat.outcome != 'success' }}");
+assert.equal(step('Expose Pages base path from fallback step').run,
+  'echo "PAGES_BASE_PATH=${{ steps.pages.outputs.base_path }}" >> $GITHUB_ENV');
 for (const token of [undefined, '', 'dummy-token']) {
   const flag = String((token || '') !== '');
   const selected = [pagesPat, pagesFallback].filter((setup) => {
