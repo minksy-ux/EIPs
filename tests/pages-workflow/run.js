@@ -32,6 +32,7 @@ assert.equal(step('Checkout EIPs').with['persist-credentials'], false);
 assert.equal(step('Checkout EIPs').uses, 'actions/checkout@v7.0.1');
 assert.equal(step('Merge Repos').uses, './.github/actions/merge-repos');
 assert.equal(step('Install Ruby dependencies').run, 'bundle install --jobs 4 --retry 3');
+assert.equal(build.env, undefined);
 const setupPages = step('Setup Pages');
 assert.equal(setupPages.id, 'pages');
 assert.equal(setupPages.uses, 'actions/configure-pages@v6');
@@ -46,6 +47,7 @@ assert.equal(step('Expose Pages base path from PAT step'), undefined);
 assert.equal(step('Expose Pages base path from fallback step'), undefined);
 assert.equal(step('Build with Jekyll').run,
   '/usr/bin/time -v bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}" --profile --trace --verbose');
+assert.equal(step('Build with Jekyll').env.PAGES_BASE_PATH, undefined);
 assert.equal(step('Build with Jekyll').env.JEKYLL_ENV, 'production');
 assert.equal(step('Build with Jekyll').if, undefined);
 assert.deepEqual(workflow.permissions, { contents: 'read' });
