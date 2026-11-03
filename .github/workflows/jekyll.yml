@@ -10,17 +10,13 @@ on:
   # Runs on pushes targeting the default branch
   push:
     branches: ["master"]
-  schedule:
-    - cron: "*/15 * * * *" # Every 15 minutes
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# Deployment permissions are scoped to the deploy job below.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
@@ -31,72 +27,51 @@ concurrency:
 jobs:
   # Build job
   build:
-    # Only upstream deploys on a schedule; forks retain push/manual build validation.
-    if: github.event_name != 'schedule' || github.repository == 'ethereum/EIPs'
-    # Ruby 3.1 has Ubuntu 24.04 binaries, but not Ubuntu 26.04 (ubuntu-latest).
+    timeout-minutes: 30
+    # Pin the image so runner updates cannot select an unsupported Ruby binary.
     runs-on: ubuntu-24.04
-    outputs:
-      pages_enabled: ${{ steps.pages-check.outputs.enabled }}
-      artifact_uploaded: ${{ steps.upload.outcome == 'success' }}
+    permissions:
+      contents: read
+      pages: read
     steps:
       - name: Checkout EIPs
         uses: actions/checkout@v7.0.1
         with:
-          repository: ethereum/EIPs
-          path: ''
+          persist-credentials: false
       - name: Merge Repos
         uses: ./.github/actions/merge-repos
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.1' # Not needed with a .ruby-version file
+          ruby-version: '3.3' # Keep the Ruby binary compatible with the pinned runner.
           bundler-cache: false
       - name: Install Ruby dependencies
         run: bundle install --jobs 4 --retry 3
-      - name: Check Pages site availability
-        id: pages-check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set +e
-          status=$(curl -sS -o /tmp/pages.json -w "%{http_code}" \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/pages")
-          curl_exit=$?
-          set -e
-
-          if [ "$curl_exit" -ne 0 ]; then
-            status="000"
-            echo "Pages site check failed (curl exit $curl_exit); skipping artifact upload and deploy."
-          fi
-
-          if [ "$status" = "200" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "Pages site is available for this repository."
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Pages site is not accessible (HTTP $status); skipping artifact upload and deploy."
-          fi
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v6
       - name: Build with Jekyll
         # Outputs to the './_site' directory by default
-        run: bundle exec jekyll build
+        timeout-minutes: 20
+        run: /usr/bin/time -v bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}" --profile --trace --verbose
         env:
           JEKYLL_ENV: production
           JEKYLL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload artifact
-        id: upload
-        if: github.repository == 'ethereum/EIPs' && steps.pages-check.outputs.enabled == 'true'
         # Automatically uploads an artifact from the './_site' directory by default
         uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./_site
 
   # Deployment job
   deploy:
-    if: github.repository == 'ethereum/EIPs' && needs.build.outputs.pages_enabled == 'true' && needs.build.outputs.artifact_uploaded == 'true'
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - name: Deploy to GitHub Pages
